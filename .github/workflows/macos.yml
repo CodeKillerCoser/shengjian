@@ -1,0 +1,92 @@
+name: macOS Build and Release
+run-name: ${{ inputs.publish_release && format('Release v{0}', inputs.version) || 'Release build' }}
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: '发布到 GitHub Releases（默认仅构建）'
+        type: boolean
+        required: true
+        default: false
+      version:
+        description: '发布时必填：X.Y.Z，例如 1.0.0；仅构建时可留空'
+        type: string
+        required: false
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: macos-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    name: Build · Release · Apple Silicon
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 25
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate version and release inputs
+        id: version
+        env:
+          PUBLISH_RELEASE: ${{ inputs.publish_release || false }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: python3 Scripts/ci_version.py
+      - name: Verify configuration and run isolated checks
+        run: |
+          python3 -m unittest discover -s Tests -p 'test_*.py' -v
+          python3 Scripts/run_checks.py
+      - name: Build signed Release app
+        env:
+          APP_VERSION: ${{ steps.version.outputs.version }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: ./build.sh Release
+      - name: Verify stable signing identity
+        run: python3 Tests/SigningChecks.py
+      - name: Package app
+        env:
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        run: bash Scripts/package.sh
+      - name: Upload build artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Shengjian-macOS-arm64-${{ steps.version.outputs.version }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish · GitHub Release
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Download the exact signed build
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: Shengjian-macOS-arm64-${{ needs.build.outputs.version }}
+          path: dist
+      - name: Verify archive checksum
+        working-directory: dist
+        run: sha256sum --check SHA256SUMS
+      - name: Create version tag and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.build.outputs.tag }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          # Ref creation refuses an existing version, so an old tag/release is never overwritten.
+          gh api --method POST "repos/$GH_REPO/git/refs" -f "ref=refs/tags/$TAG" -f "sha=$GITHUB_SHA" >/dev/null
+          gh release create "$TAG" dist/*.zip dist/SHA256SUMS dist/build-manifest.json \
+            --repo "$GH_REPO" --verify-tag --title "声笺 $VERSION" \
+            --target "$GITHUB_SHA" --generate-notes
