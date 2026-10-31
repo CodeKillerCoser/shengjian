@@ -43,6 +43,7 @@ jobs:
           python3 -m unittest discover -s Tests -p 'test_*.py' -v
           python3 Scripts/run_checks.py
       - name: Import existing signing identity from Secrets
+        timeout-minutes: 2
         env:
           SIGNING_CERTIFICATE_P12: ${{ secrets.SIGNING_CERTIFICATE_P12 }}
           SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}

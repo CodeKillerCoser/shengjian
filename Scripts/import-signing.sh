@@ -18,7 +18,7 @@ security find-certificate -c 'RimeVoice Local Code Signing' -p "$SIGNING_KEYCHAI
 actual="$(openssl x509 -in "$RUNNER_TEMP/shengjian-signing.pem" -noout -fingerprint -sha1 | cut -d= -f2 | tr -d ':')"
 expected="$SHENGJIAN_EXPECTED_SIGNING_IDENTITY"
 [[ "$actual" == "$expected" ]] || { echo 'Unexpected signing certificate'; exit 1; }
-security add-trusted-cert -r trustRoot -p codeSign -k "$SIGNING_KEYCHAIN" "$RUNNER_TEMP/shengjian-signing.pem"
+sudo -n security add-trusted-cert -d -r trustRoot -p codeSign -k "$SIGNING_KEYCHAIN" "$RUNNER_TEMP/shengjian-signing.pem"
 security list-keychains -d user -s "$SIGNING_KEYCHAIN" "$HOME/Library/Keychains/login.keychain-db"
 mkdir -p "$RUNNER_TEMP/shengjian-signing"
 printf '%s\n' "$expected" > "$RUNNER_TEMP/shengjian-signing/certificate.sha1"
