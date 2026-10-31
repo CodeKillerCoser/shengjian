@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-signing_dir = Path(os.environ.get('SHENGJIAN_SIGNING_DIR', str(Path.home() / 'Library/Application Support/Shengjian/Signing')))
+signing_dir = Path(os.environ.get('SHENGJIAN_SIGNING_DIR', str(Path.home() / '.config/shengjian/signing')))
 identity = (signing_dir / 'certificate.sha1').read_text().strip()
 
 def run(*args):

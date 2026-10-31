@@ -23,7 +23,7 @@ concurrency:
 jobs:
   build:
     name: Build · Release · Apple Silicon
-    runs-on: [self-hosted, macOS, ARM64]
+    runs-on: macos-15
     timeout-minutes: 25
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -42,6 +42,12 @@ jobs:
         run: |
           python3 -m unittest discover -s Tests -p 'test_*.py' -v
           python3 Scripts/run_checks.py
+      - name: Import existing signing identity from Secrets
+        env:
+          SIGNING_CERTIFICATE_P12: ${{ secrets.SIGNING_CERTIFICATE_P12 }}
+          SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
+          SHENGJIAN_EXPECTED_SIGNING_IDENTITY: ${{ secrets.SHENGJIAN_EXPECTED_SIGNING_IDENTITY }}
+        run: bash Scripts/import-signing.sh
       - name: Build signed Release app
         env:
           APP_VERSION: ${{ steps.version.outputs.version }}
@@ -60,6 +66,12 @@ jobs:
           path: dist/*
           if-no-files-found: error
           retention-days: 14
+      - name: Remove signing material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/shengjian-signing.keychain-db" 2>/dev/null || true
+          rm -rf "$RUNNER_TEMP/shengjian-signing"
+          rm -f "$RUNNER_TEMP/shengjian-signing.p12" "$RUNNER_TEMP/shengjian-signing.pem"
 
   release:
     name: Publish · GitHub Release

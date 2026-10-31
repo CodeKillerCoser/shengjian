@@ -23,7 +23,7 @@
 产物：`build/声笺.app`。脚本从源文件、`App/Info.plist` 和品牌资源创建全新 App，不依赖已有二进制。
 
 可选环境变量：`APP_VERSION=1.0.0`、`BUILD_NUMBER=1`、`BUILD_DIR=/absolute/path`。
-固定证书配置仅保存在本机 `~/Library/Application Support/Shengjian/Signing`，私钥保存在系统钥匙串。可用 `SHENGJIAN_SIGNING_DIR` 指定配置目录，不允许 ad-hoc 签名或每次重建证书。
+固定证书配置仅保存在本机 `~/.config/shengjian/signing`，私钥保存在系统钥匙串。可用 `SHENGJIAN_SIGNING_DIR` 指定配置目录，不允许 ad-hoc 签名或每次重建证书。
 
 ```sh
 python3 -m unittest discover -s Tests -p 'test_*.py' -v
@@ -37,7 +37,7 @@ python3 Tests/SigningChecks.py # 构建后执行
 
 `.github/workflows/macos.yml` 包含两个独立节点：
 
-1. **build**：main 推送或手动运行时，在持有本机签名身份的 self-hosted macOS ARM64 runner 执行检查、Release arm64 构建、验证签名，上传 ZIP、SHA256SUMS 与构建清单。
+1. **build**：main 推送或手动运行时，在 GitHub 托管 macOS ARM64 runner 执行检查、Release arm64 构建、验证签名，上传 ZIP、SHA256SUMS 与构建清单。
 2. **release**：仅手动运行并勾选 `publish_release` 时运行，使用 build 的同一签名产物创建版本标签和 GitHub Release。
 
 在 Actions → macOS Build and Release → Run workflow 中：
@@ -48,12 +48,12 @@ python3 Tests/SigningChecks.py # 构建后执行
 
 GitHub 的输入表单不支持“根据勾选动态必填”，因此版本约束由 build 的第一步强制校验。
 
-### 本机签名与 runner
+### 签名托管
 
-签名证书配置和私钥不上传 GitHub，也不使用 Actions Secrets 保存私钥。
-构建节点需要配置 `self-hosted`、`macOS`、`ARM64` 标签的受信任本机 runner；未配置时任务会排队。
-runner 用户须能访问本机 Signing 目录里的 `certificate.sha1` 和钥匙串内对应的固定签名身份。
-只在受信任的代码上运行本机 runner。
+固定签名身份通过 GitHub Actions Secrets 托管：`SIGNING_CERTIFICATE_P12`、`SIGNING_CERTIFICATE_PASSWORD`、`SHENGJIAN_EXPECTED_SIGNING_IDENTITY`。
+证书文件、私钥及密码不进入代码或 Git 历史。CI 导入临时钥匙串，结束后删除。
+本机配置位于 `~/.config/shengjian/signing`，私钥保存在系统钥匙串。
+更新 Secrets：`python3 Scripts/configure_signing_secrets.py CodeKillerCoser/shengjian`。
 
 自签名产物没有 Apple 公证，首次安装可能需要用户在系统设置中允许打开。
 

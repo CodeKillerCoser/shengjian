@@ -8,7 +8,7 @@ case "$configuration" in
   Debug) optimization=(-Onone -g) ;;
   *) print -u2 'Usage: ./build.sh [Release|Debug]'; exit 2 ;;
 esac
-signing_dir="${SHENGJIAN_SIGNING_DIR:-$HOME/Library/Application Support/Shengjian/Signing}"
+signing_dir="${SHENGJIAN_SIGNING_DIR:-$HOME/.config/shengjian/signing}"
 identity="${SHENGJIAN_SIGNING_IDENTITY:-${RIMEVOICE_SIGNING_IDENTITY:-}}"
 if [[ -z "$identity" && -f signing-identity.txt ]]; then identity="$(<signing-identity.txt)"; fi
 if [[ -z "$identity" ]]; then identity="$(<"$signing_dir/certificate.sha1")"; fi
