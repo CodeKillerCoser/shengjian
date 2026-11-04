@@ -38,13 +38,68 @@ enum AccessibilityPermissionState {
     }
 }
 
+// Keep permission requests separate from navigation: an app is not listed in
+// Privacy settings until it has actually requested that permission.
+struct PermissionActions {
+    var microphoneStatus: () -> AVAuthorizationStatus
+    var speechStatus: () -> SFSpeechRecognizerAuthorizationStatus
+    var requestMicrophone: () async -> Bool
+    var requestSpeech: () async -> SFSpeechRecognizerAuthorizationStatus
+    var openPane: (String) -> Void
+    static let system = PermissionActions(
+        microphoneStatus: { AVCaptureDevice.authorizationStatus(for: .audio) },
+        speechStatus: { SFSpeechRecognizer.authorizationStatus() },
+        requestMicrophone: {
+            await withCheckedContinuation { continuation in
+                AVCaptureDevice.requestAccess(for: .audio) { continuation.resume(returning: $0) }
+            }
+        },
+        requestSpeech: {
+            await withCheckedContinuation { continuation in
+                SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
+            }
+        },
+        openPane: { pane in
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?" + pane) {
+                NSWorkspace.shared.open(url)
+            }
+        }
+    )
+}
+
 @MainActor final class AppPermissions: ObservableObject {
-    @Published var microphone = AVCaptureDevice.authorizationStatus(for: .audio)
-    @Published var speech = SFSpeechRecognizer.authorizationStatus()
+    @Published var microphone: AVAuthorizationStatus
+    @Published var speech: SFSpeechRecognizerAuthorizationStatus
+    @Published private(set) var requestingMicrophone = false
+    @Published private(set) var requestingSpeech = false
     @Published var accessibility = AccessibilityPermissionState.checking
+    private let actions: PermissionActions
     private var refreshingAccessibility = false
     private var guide: AuthorizationGuide?
     private var guideRequest = UUID()
+    init(actions: PermissionActions = .system) {
+        self.actions = actions
+        microphone = actions.microphoneStatus()
+        speech = actions.speechStatus()
+    }
+    func manageMicrophone() async {
+        guard !requestingMicrophone else { return }
+        closeGuide()
+        microphone = actions.microphoneStatus()
+        guard microphone == .notDetermined else { open("Privacy_Microphone"); return }
+        requestingMicrophone = true
+        defer { requestingMicrophone = false }
+        microphone = await actions.requestMicrophone() ? .authorized : actions.microphoneStatus()
+    }
+    func manageSpeech() async {
+        guard !requestingSpeech else { return }
+        closeGuide()
+        speech = actions.speechStatus()
+        guard speech == .notDetermined else { open("Privacy_SpeechRecognition"); return }
+        requestingSpeech = true
+        defer { requestingSpeech = false }
+        speech = await actions.requestSpeech()
+    }
     func openAccessibilityGuide() {
         closeGuide()
         open("Privacy_Accessibility")
@@ -63,8 +118,8 @@ enum AccessibilityPermissionState {
     }
     func closeGuide() { guideRequest = UUID(); guide?.close(); guide = nil }
     func refresh() {
-        microphone = AVCaptureDevice.authorizationStatus(for: .audio)
-        speech = SFSpeechRecognizer.authorizationStatus()
+        microphone = actions.microphoneStatus()
+        speech = actions.speechStatus()
         guard !refreshingAccessibility else { return }
         guard let executable = Bundle.main.executableURL else { accessibility = .unavailable; return }
         refreshingAccessibility = true
@@ -77,9 +132,8 @@ enum AccessibilityPermissionState {
         }
     }
     func open(_ pane: String) {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?" + pane) {
-            NSWorkspace.shared.open(url)
-        }
+        closeGuide()
+        actions.openPane(pane)
     }
     var microphoneLabel: String {
         switch microphone {
@@ -106,7 +160,20 @@ struct PermissionRow: View {
     let detail: String
     let state: String
     let granted: Bool
+    var needsRequest = false
+    var requesting = false
     let action: () -> Void
+    private var actionDescription: String {
+        needsRequest ? "申请\(title)权限" : "打开\(title)系统设置"
+    }
+    @ViewBuilder private var actionContent: some View {
+        if needsRequest {
+            Text(requesting ? "等待授权…" : "申请授权").font(.callout)
+        } else {
+            Image(systemName: "arrow.up.forward.square")
+                .font(.system(size: 15)).frame(width: 28, height: 28).contentShape(Rectangle())
+        }
+    }
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
@@ -117,12 +184,11 @@ struct PermissionRow: View {
             Label(state, systemImage: granted ? "checkmark.circle.fill" : "exclamationmark.circle")
                 .font(.callout).foregroundStyle(granted ? Color.green : Color.orange)
                 .fixedSize()
-            Button(action: action) {
-                Image(systemName: "arrow.up.forward.square")
-                    .font(.system(size: 15)).frame(width: 28, height: 28).contentShape(Rectangle())
-            }.buttonStyle(.plain).foregroundStyle(.secondary)
-                .help("打开" + title + "系统设置")
-                .accessibilityLabel("打开" + title + "系统设置")
+            Button(action: action) { actionContent }
+                .buttonStyle(.plain).foregroundStyle(.secondary)
+                .disabled(requesting)
+                .help(actionDescription)
+                .accessibilityLabel(actionDescription)
         }.padding(.vertical, 4)
     }
 }
@@ -134,12 +200,14 @@ struct PermissionSettings: View {
     var body: some View {
         Section("权限与授权") {
             PermissionRow(title: "麦克风", detail: "采集音频，用于语音转写。", state: audioInputs.hasInput ? permissions.microphoneLabel : AudioInputMonitor.missingMessage,
-                          granted: audioInputs.hasInput && permissions.microphone == .authorized) {
-                permissions.open("Privacy_Microphone")
+                          granted: audioInputs.hasInput && permissions.microphone == .authorized,
+                          needsRequest: permissions.microphone == .notDetermined, requesting: permissions.requestingMicrophone) {
+                Task { await permissions.manageMicrophone() }
             }
             PermissionRow(title: "语音识别", detail: appleEngine ? "允许 声笺 使用 Apple 语音识别服务。" : "允许使用 Apple 语音识别服务；当前使用 Whisper，无需开启。",
-                          state: permissions.speechLabel, granted: permissions.speech == .authorized) {
-                permissions.open("Privacy_SpeechRecognition")
+                          state: permissions.speechLabel, granted: permissions.speech == .authorized,
+                          needsRequest: permissions.speech == .notDetermined, requesting: permissions.requestingSpeech) {
+                Task { await permissions.manageSpeech() }
             }
             PermissionRow(title: "辅助功能", detail: "向其他 App 的输入框自动填写文字；只复制到剪贴板时无需开启。",
                           state: permissions.accessibility.label, granted: permissions.accessibility == .authorized) {

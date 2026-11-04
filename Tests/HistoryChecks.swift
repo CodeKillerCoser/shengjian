@@ -11,6 +11,7 @@ import AppKit
         throw failure("Test timed out")
     }
     @MainActor static func main() async throws {
+        await PermissionChecks.run()
         for (endpoint, expected) in [
             ("http://localhost:11234/v1", "http://localhost:11234/v1/models"),
             ("https://example.com", "https://example.com/v1/models"),

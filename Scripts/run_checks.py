@@ -25,7 +25,7 @@ threading.Thread(target=server.serve_forever,daemon=True).start()
 source=Path('Sources/main.swift').read_text().replace('@main struct RimeVoiceApp:', 'struct RimeVoiceApp:')
 (root/'AppUnderTest.swift').write_text(source)
 frameworks=['SwiftUI','AppKit','AVFoundation','Speech','Security','Carbon']
-cmd=['swiftc','-parse-as-library','-swift-version','5',str(root/'AppUnderTest.swift')]+[str(p) for p in sorted(Path('Sources').glob('*.swift')) if p.name!='main.swift']+['Tests/HistoryChecks.swift','-o',str(root/'checks')]
+cmd=['swiftc','-parse-as-library','-swift-version','5',str(root/'AppUnderTest.swift')]+[str(p) for p in sorted(Path('Sources').glob('*.swift')) if p.name!='main.swift']+['Tests/HistoryChecks.swift','Tests/PermissionChecks.swift','-o',str(root/'checks')]
 for name in frameworks: cmd+=['-framework',name]
 subprocess.run(cmd,check=True)
 subprocess.run([str(root/'checks'),str(root.resolve()),str(server.server_port)],check=True)

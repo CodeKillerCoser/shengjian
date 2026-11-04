@@ -8,6 +8,42 @@ final class AuthorizationGuidePanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+struct SettingsGuideWindow {
+    let id: Int
+    let frame: CGRect
+    let isOnscreen: Bool
+
+    init?(info: [String: Any], ownerPID: pid_t) {
+        guard (info[kCGWindowOwnerPID as String] as? Int32) == ownerPID,
+              (info[kCGWindowLayer as String] as? Int) == 0,
+              let id = info[kCGWindowNumber as String] as? Int,
+              let bounds = info[kCGWindowBounds as String] as? NSDictionary,
+              let frame = CGRect(dictionaryRepresentation: bounds),
+              frame.width >= 400, frame.height >= 300 else { return nil }
+        self.id = id; self.frame = frame
+        isOnscreen = (info[kCGWindowIsOnscreen as String] as? Bool) == true
+    }
+
+    static func target(in windows: [SettingsGuideWindow], preferredID: Int?) -> SettingsGuideWindow? {
+        let visible = windows.filter(\.isOnscreen)
+        return visible.first { $0.id == preferredID } ?? visible.first
+    }
+}
+
+enum AuthorizationGuideLayout {
+    static func frame(settings: CGRect, visibleArea: CGRect) -> CGRect {
+        let listLeft = settings.minX + min(252, settings.width * 0.341)
+        let width = min(max(160, settings.maxX - 20 - listLeft),
+                        min(settings.width, visibleArea.width) - 24)
+        let x = min(max(listLeft, max(settings.minX, visibleArea.minX) + 12),
+                    min(settings.maxX, visibleArea.maxX) - 12 - width)
+        let y = min(max(settings.maxY - settings.height * 0.57 - 56,
+                        max(settings.minY, visibleArea.minY) + 12),
+                    min(settings.maxY, visibleArea.maxY) - 12 - 56)
+        return CGRect(x: x, y: y, width: width, height: 56)
+    }
+}
+
 @MainActor final class AuthorizationGuide {
     private let panel: AuthorizationGuidePanel
     private var timer: Timer?
@@ -15,6 +51,7 @@ final class AuthorizationGuidePanel: NSPanel {
     private var lastPermissionRefresh = Date.distantPast
     private var targetWindowID: Int?
     private let started = Date()
+    private var lastSeenWindow = Date()
     init(permissions: AppPermissions) {
         self.permissions = permissions
         panel = AuthorizationGuidePanel(contentRect: NSRect(x: 0, y: 0, width: 468, height: 56),
@@ -32,9 +69,13 @@ final class AuthorizationGuidePanel: NSPanel {
     func show() {
         placeNearSettings()
         NSApp.addWindowsItem(panel, title: panel.title, filename: false)
-        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.update() }
+        let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
+            // The timer is on the main run loop. Update directly so following
+            // does not wait for a Task while AppKit is tracking a drag.
+            MainActor.assumeIsolated { self?.update() }
         }
+        self.timer = timer
+        RunLoop.main.add(timer, forMode: .common)
     }
     private func update() {
         guard let permissions else { close(); return }
@@ -55,43 +96,35 @@ final class AuthorizationGuidePanel: NSPanel {
         guard let windows = CGWindowListCopyWindowInfo([.optionAll, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
             panel.orderOut(nil); return
         }
-        let settingsWindows = windows.filter { ($0[kCGWindowOwnerPID as String] as? Int32) == settings.processIdentifier && ($0[kCGWindowLayer as String] as? Int) == 0 }
-        let window: [String: Any]?
-        if let targetWindowID {
-            window = settingsWindows.first { ($0[kCGWindowNumber as String] as? Int) == targetWindowID }
-            if window == nil { permissions?.closeGuide(); return }
-        } else {
-            window = settingsWindows.first {
-                guard let bounds = $0[kCGWindowBounds as String] as? NSDictionary,
-                      let frame = CGRect(dictionaryRepresentation: bounds) else { return false }
-                return frame.width >= 400 && frame.height >= 300 && ($0[kCGWindowIsOnscreen as String] as? Bool) == true
+        let settingsWindows = windows.compactMap { SettingsGuideWindow(info: $0, ownerPID: settings.processIdentifier) }
+        guard let window = SettingsGuideWindow.target(in: settingsWindows, preferredID: targetWindowID) else {
+            panel.orderOut(nil)
+            // Opening an extension can replace the Settings window. Allow it
+            // to reappear, but do not leave an invisible guide running forever
+            // after the user closes the Settings window.
+            if settingsWindows.isEmpty && Date().timeIntervalSince(lastSeenWindow) > 10 {
+                permissions?.closeGuide()
             }
+            return
         }
-        guard let window, let id = window[kCGWindowNumber as String] as? Int else { panel.orderOut(nil); return }
+        let id = window.id
         targetWindowID = id
+        lastSeenWindow = Date()
         // Offscreen includes minimization and moving to another Space. Never
         // leave an orphan card above another app or the desktop.
         let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
-        guard !settings.isHidden, (window[kCGWindowIsOnscreen as String] as? Bool) == true,
+        guard !settings.isHidden,
               front == "com.apple.systempreferences" || front == Bundle.main.bundleIdentifier else {
             panel.orderOut(nil); return
         }
-        guard let bounds = window[kCGWindowBounds as String] as? NSDictionary,
-              let rect = CGRect(dictionaryRepresentation: bounds) else { panel.orderOut(nil); return }
+        let rect = window.frame
         let desktopTop = NSScreen.screens.first?.frame.maxY ?? 0
         let frame = NSRect(x: rect.minX, y: desktopTop - rect.maxY, width: rect.width, height: rect.height)
         let screen = NSScreen.screens.max(by: { $0.frame.intersection(frame).width * $0.frame.intersection(frame).height < $1.frame.intersection(frame).width * $1.frame.intersection(frame).height })
         let area = screen?.visibleFrame ?? frame
         // System Settings: 232 pt sidebar + 20 pt content inset; the
         // application list ends 20 pt before the right window edge.
-        let listLeft = frame.minX + min(252, frame.width * 0.341)
-        let listWidth = max(160, frame.maxX - 20 - listLeft)
-        panel.setContentSize(NSSize(width: listWidth, height: 56))
-        let anchor = NSPoint(x: listLeft, y: frame.maxY - frame.height * 0.57 - panel.frame.height)
-        var origin = anchor
-        origin.x = min(max(origin.x, max(frame.minX + 12, area.minX + 12)), min(frame.maxX - 12, area.maxX - 12) - panel.frame.width)
-        origin.y = min(max(origin.y, max(frame.minY + 12, area.minY + 12)), min(frame.maxY - 12, area.maxY - 12) - panel.frame.height)
-        panel.setFrameOrigin(origin)
+        panel.setFrame(AuthorizationGuideLayout.frame(settings: frame, visibleArea: area), display: true)
         // Keep the card immediately above its target, at the normal window
         // level; it must not behave like an always-on-top utility panel.
         panel.order(.above, relativeTo: id)
