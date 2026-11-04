@@ -16,6 +16,7 @@ import Combine
     let guide: AuthorizationGuideController
     let breeze: BreezeController
     let breezeEnvironment: BreezeEnvironment
+    let speechRecognition: SpeechRecognitionService
     private let transcription: TranscriptionService
     private let playback = AudioPlayback()
     private var overlay: RecordingOverlay?
@@ -30,7 +31,12 @@ import Combine
         inputs = AudioInputMonitor()
         recorder = AudioRecorder(temporaryDirectory: directory.appendingPathComponent("Temporary", isDirectory: true))
         let breezeDirectory = directory.appendingPathComponent("Engines/Breeze", isDirectory: true)
-        breeze = BreezeController(service: BreezeService(directory: breezeDirectory))
+        speechRecognition = SpeechRecognitionService(
+            settings: settings, permissions: permissions,
+            temporaryDirectory: directory.appendingPathComponent("Temporary", isDirectory: true))
+        breeze = BreezeController(
+            service: BreezeService(directory: breezeDirectory),
+            speechRecognition: speechRecognition, activity: activity)
         breezeEnvironment = BreezeEnvironment(service: BreezeEnvironmentService(directory: breezeDirectory))
         transcription = TranscriptionService(permissions: permissions)
         let client = ModelClient()
@@ -102,7 +108,7 @@ import Combine
         NSApp.windows.first { !($0 is NSPanel) }?.makeKeyAndOrderFront(nil)
     }
     func shutdown() {
-        breeze.stopPlayback()
+        breeze.shutdown()
         shortcuts.stop()
         guide.close()
         catalog.cancel()

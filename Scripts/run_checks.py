@@ -5,7 +5,7 @@ os.chdir(Path(__file__).resolve().parents[1])
 qa_directory = tempfile.TemporaryDirectory(prefix="shengjian-checks-")
 from http.server import HTTPServer, BaseHTTPRequestHandler
 root=Path(qa_directory.name)
-for filename in ['sample.wav', 'core.wav']:
+for filename in ['sample.wav', 'core.wav', 'reference.wav']:
     with wave.open(str(root/filename),'wb') as f:
         f.setnchannels(1); f.setsampwidth(2); f.setframerate(16000); f.writeframes(bytes(64000))
 (root/'test-ggml.bin').write_bytes(b'test')
@@ -34,6 +34,8 @@ class Handler(BaseHTTPRequestHandler):
             assert b'multipart/form-data' in self.headers['Content-Type'].encode()
             assert b'name="text"' in body and '合成测试'.encode() in body
             assert b'name="instruction"' in body
+            if b'name="ref_audio"' in body:
+                assert b'name="ref_text"' in body and '嗯，我我今天去上海，啊。'.encode() in body
             self.send_response(200); self.end_headers(); self.wfile.write(bytes(4800)); return
         assert self.path in ['/v1/chat/completions', '/auth/v1/chat/completions']
         data=json.loads(self.rfile.read(int(self.headers['Content-Length'])))
@@ -52,7 +54,7 @@ for name in frameworks:
     if name != 'SwiftUI': core_cmd+=['-framework',name]
 subprocess.run(core_cmd,check=True)
 subprocess.run([str(root/'core-checks'),str(root.resolve()),str(server.server_port)],check=True)
-cmd=['swiftc','-parse-as-library','-swift-version','5']+sources+['Tests/HistoryChecks.swift','Tests/PermissionChecks.swift','-o',str(root/'checks')]
+cmd=['swiftc','-parse-as-library','-swift-version','5']+sources+['Tests/HistoryChecks.swift','Tests/PermissionChecks.swift','Tests/ReferenceRecognitionChecks.swift','-o',str(root/'checks')]
 for name in frameworks: cmd+=['-framework',name]
 subprocess.run(cmd,check=True)
 subprocess.run([str(root/'checks'),str(root.resolve()),str(server.server_port)],check=True)

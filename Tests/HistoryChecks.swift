@@ -43,6 +43,7 @@ import Foundation
         inputMonitor.deviceConfigurationChanged()
         precondition(!inputMonitor.hasInput && probes == 3)
         let root = URL(fileURLWithPath: CommandLine.arguments[1])
+        try await ReferenceRecognitionChecks.run(root: root, port: CommandLine.arguments[2])
         let fixture = FeatureFixture(directory: root.appendingPathComponent("data"))
         let voice = fixture.dictation
         fixture.settings.prefs.copyAfterTranscription = false

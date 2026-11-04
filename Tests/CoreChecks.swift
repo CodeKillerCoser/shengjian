@@ -33,6 +33,37 @@ import Foundation
         let library = HistoryLibrary(store: historyStore)
         let record = try library.archive(root.appendingPathComponent("core.wav"), duration: 2)
         precondition(FileManager.default.fileExists(atPath: library.audio(record.id).path))
+        // The public speech API has no configuration argument. The same API
+        // instance must pick up configuration changes inside its own module.
+        let recognitionSettings = AppSettings(store: store)
+        recognitionSettings.prefs.online = true
+        recognitionSettings.prefs.prompt = "不要保留原文，全部改写"
+        let recognitionTemporary = root.appendingPathComponent("speech-api-temporary")
+        let speech = SpeechRecognitionService(
+            settings: recognitionSettings, permissions: permissions,
+            temporaryDirectory: recognitionTemporary)
+        let heard = try await speech.recognize(library.audio(record.id))
+        precondition(heard == "这是转写测试。")
+        let otherEngine = root.appendingPathComponent("other-whisper.py")
+        try Data(
+            """
+            #!/usr/bin/env python3
+            import sys
+            from pathlib import Path
+            assert sys.argv[sys.argv.index('-l') + 1] == 'en'
+            Path(sys.argv[sys.argv.index('-of') + 1] + '.txt').write_text('configured speech API result')
+            """.utf8
+        ).write(to: otherEngine)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: otherEngine.path)
+        recognitionSettings.prefs.whisper = otherEngine.path
+        recognitionSettings.prefs.language = "en-US"
+        let changed = try await speech.recognize(library.audio(record.id))
+        precondition(changed == "configured speech API result")
+        precondition(library.records.count == 1 && library.records[0].transcriptions.isEmpty)
+        let leftovers = try FileManager.default.contentsOfDirectory(atPath: recognitionTemporary.path)
+        precondition(leftovers.isEmpty)
+        print(
+            "PASS: standalone audio-to-text API, module-owned live configuration, no rewriting or history side effects")
         let client = ModelClient(savedKey: { "saved-key" }, hasSavedKey: { true })
         let processing = ProcessingService(
             transcription: TranscriptionService(permissions: permissions), models: client, history: library)
