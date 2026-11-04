@@ -170,7 +170,8 @@ final class Vault {
     var audioDeviceSubscription: AnyCancellable?
     @Published var captureStartMilliseconds: Double = 0
     func makeRecorder() throws -> AVAudioRecorder {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("rimevoice-\(UUID().uuidString).wav")
+        try FileManager.default.createDirectory(at: directory.appendingPathComponent("Temporary"), withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("Temporary/rimevoice-\(UUID().uuidString).wav")
         let settings: [String: Any] = [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 16000, AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false]
         let recorder = try AVAudioRecorder(url: url, settings: settings)
         recorder.isMeteringEnabled = true
@@ -212,7 +213,7 @@ final class Vault {
     let directory: URL
     init(directory overrideDirectory: URL? = nil, systemHooks: Bool = true) {
         self.systemActionsEnabled = systemHooks
-        self.directory = overrideDirectory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("RimeVoice")
+        self.directory = overrideDirectory ?? AppStorage.root
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         if let d = try? Data(contentsOf: directory.appendingPathComponent("settings.json")), let p = try? JSONDecoder().decode(Prefs.self, from: d) { prefs = p }
         do { history = try historyStore.load() }
@@ -899,6 +900,7 @@ struct Content: View {
                     }
                     if !voice.transcriptReady && !voice.rewriteReady { Spacer(minLength: 0) }
                 }.padding().tabItem { Label("听写", systemImage: "mic") }
+                BreezeView(voice: voice).tabItem { Label("语音合成", systemImage: "speaker.wave.2") }
                 HistoryView(voice: voice).tabItem { Label("转写历史", systemImage: "clock.arrow.circlepath") }
                 SettingsView(voice: voice).tabItem { Label("设置", systemImage: "gearshape") }
 

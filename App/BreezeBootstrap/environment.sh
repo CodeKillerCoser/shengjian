@@ -1,0 +1,15 @@
+#!/bin/bash
+BREEZE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export HF_HOME="$BREEZE_ROOT/data/huggingface"
+export XDG_CONFIG_HOME="$BREEZE_ROOT/data/config"
+export UV_TOOL_DIR="$BREEZE_ROOT/data/uv-tools"
+export UV_TOOL_BIN_DIR="$BREEZE_ROOT/tools"
+export XDG_CACHE_HOME="$BREEZE_ROOT/data/cache"
+export UV_CACHE_DIR="$BREEZE_ROOT/data/uv-cache"
+export UV_PYTHON_INSTALL_DIR="$BREEZE_ROOT/data/python"
+export TORCH_HOME="$BREEZE_ROOT/data/torch"
+export TORCHINDUCTOR_CACHE_DIR="$BREEZE_ROOT/data/torchinductor"
+export TMPDIR="$BREEZE_ROOT/data/tmp"
+export MPLCONFIGDIR="$BREEZE_ROOT/data/matplotlib"
+export BREEZE_MLX_QUANT=depth:8 BREEZE_MLX_COMPILE=1 BREEZE_MLX_FAST_FIRST=6 BREEZE_MLX_CACHE_GB=1
+mkdir -p "$HF_HOME" "$XDG_CACHE_HOME" "$UV_CACHE_DIR" "$TMPDIR" "$BREEZE_ROOT/logs" "$BREEZE_ROOT/audio" "$BREEZE_ROOT/voices"

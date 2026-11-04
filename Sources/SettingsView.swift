@@ -34,6 +34,7 @@ struct SettingsView: View {
                 Toggle("转写后复制到剪贴板", isOn: Binding(get: { voice.prefs.copiesResult }, set: { voice.prefs.copyAfterTranscription = $0 }))
                 Toggle("转写后自动填写到输入框", isOn: $voice.prefs.autoInsert)
             }
+            MLXSettingsSection()
             Section("语音转写") {
                 Picker("识别引擎", selection: $voice.prefs.engine) { Text("Apple 本地识别").tag("apple"); Text("Whisper.cpp 本地模型").tag("whisper") }
                 Picker("语言", selection: $voice.prefs.language) { Text("简体中文").tag("zh-CN"); Text("English").tag("en-US") }

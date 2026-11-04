@@ -27,6 +27,7 @@ trap 'rm -rf "$stage"' EXIT
 app="$stage/声笺.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp App/Info.plist "$app/Contents/Info.plist"
+if [[ -d App/BreezeBootstrap ]]; then ditto App/BreezeBootstrap "$app/Contents/Resources/BreezeBootstrap"; fi
 python3 Scripts/set_version.py "$app/Contents/Info.plist"
 cp Brand/shengjian-logo-v1.png "$app/Contents/Resources/ShengjianLogo.png"
 cp Brand/Shengjian.icns "$app/Contents/Resources/Shengjian.icns"
