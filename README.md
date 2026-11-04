@@ -11,6 +11,22 @@
 - 本地音频及处理历史，支持重试和模型/耗时/用量记录。
 - 音频输入设备启动检测与 Core Audio 变更订阅，防止双开。
 
+## 代码结构
+
+| 目录 | 职责 |
+| --- | --- |
+| `Sources/App` | 应用入口、依赖装配、窗口导航和生命周期 |
+| `Sources/Presentation` | 听写、历史、设置、权限引导的视图与页面状态；通用 UI 组件 |
+| `Sources/Application` | 转写与整理流程、历史数据管理、共享配置、统一授权状态及活动互斥 |
+| `Sources/Domain` | 配置、音频与处理记录等数据类型 |
+| `Sources/Infrastructure` | 录音播放、Apple/Whisper、模型 HTTP 客户端、持久化与 macOS 系统交互 |
+
+页面依赖各自的 Model；Model 调用业务流程和具体服务。`AppModel` 负责创建和连接这些对象，不承载业务实现。核心流程和基础服务不依赖页面、悬浮窗或页面 Model。
+
+录音、准备授权与后台处理通过 `ActivityState` 的单一阶段保留互斥关系；关闭悬浮条可取消自动输入，已开始的转写仍会保存到历史。窗口、定时器、快捷键和识别任务均由明确的所有者管理并在退出时清理。
+
+当前保持单一应用编译目标，采用具体类型和必要的闭包注入，没有通用 Repository 基类、服务定位器或依赖注入框架。需要增加识别引擎时，在识别适配器与 `TranscriptionService` 中接入；模型请求统一经过 `ModelClient`。
+
 ## 构建
 
 仅支持 Apple Silicon（M 系列芯片），要求 macOS 14+、Xcode Command Line Tools 和已有固定自签名证书的私钥。
@@ -31,7 +47,7 @@ python3 Scripts/run_checks.py
 python3 Tests/SigningChecks.py # 构建后执行
 ```
 
-隔离检查使用模拟识别程序和本机 HTTP 测试服务，不读取用户录音、API Key 或系统授权。
+隔离检查先单独编译并测试 `Domain`、`Application` 和 `Infrastructure`，再运行页面状态与窗口检查，无需改写应用入口。测试使用模拟识别程序和本机 HTTP 服务，不读取用户录音、API Key 或系统授权。
 
 ### 首次授权回归
 

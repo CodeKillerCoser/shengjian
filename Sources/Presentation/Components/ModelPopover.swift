@@ -10,7 +10,9 @@ struct ModelPopoverButton: NSViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeNSView(context: Context) -> NSButton {
-        let button = NSButton(image: NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "选择模型")!, target: context.coordinator, action: #selector(Coordinator.open(_:)))
+        let button = NSButton(
+            image: NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "选择模型")!,
+            target: context.coordinator, action: #selector(Coordinator.open(_:)))
         button.isBordered = false
         button.bezelStyle = .regularSquare
         button.setAccessibilityLabel("选择模型")
@@ -26,7 +28,10 @@ struct ModelPopoverButton: NSViewRepresentable {
         var input: ModelPopoverButton?
         fileprivate var popover: ModelSelectionPopover?
         @objc func open(_ sender: NSButton) {
-            if let popover, popover.isShown { popover.close(); return }
+            if let popover, popover.isShown {
+                popover.close()
+                return
+            }
             guard let input, let window = sender.window else { return }
             // Mouse position is in the source window's coordinates; show() requires
             // a rect in the source view's local coordinates. Keep a tiny anchor so
@@ -53,21 +58,30 @@ struct ModelPopoverButton: NSViewRepresentable {
             let edge = opensAbove ? upperEdge : lowerEdge
             height = min(height, max(60, opensAbove ? above : below))
             let stack = NSStackView()
-            stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 0
+            stack.orientation = .vertical
+            stack.alignment = .leading
+            stack.spacing = 0
             stack.edgeInsets = NSEdgeInsets(top: 6, left: 6, bottom: 6, right: 6)
             for (index, label) in labels.enumerated() {
                 let row = NSButton(title: label, target: self, action: #selector(choose(_:)))
-                row.font = font; row.isBordered = false; row.alignment = .left
+                row.font = font
+                row.isBordered = false
+                row.alignment = .left
                 row.lineBreakMode = .byTruncatingMiddle
-                row.tag = index; row.isEnabled = !input.models.isEmpty
-                if label == input.selected { row.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: "当前模型"); row.imagePosition = .imageTrailing }
+                row.tag = index
+                row.isEnabled = !input.models.isEmpty
+                if label == input.selected {
+                    row.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: "当前模型")
+                    row.imagePosition = .imageTrailing
+                }
                 row.widthAnchor.constraint(equalToConstant: width - 12).isActive = true
                 row.heightAnchor.constraint(equalToConstant: 30).isActive = true
                 stack.addArrangedSubview(row)
             }
             stack.frame = NSRect(x: 0, y: 0, width: width, height: CGFloat(labels.count) * 30 + 12)
             let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: width, height: height))
-            scroll.drawsBackground = false; scroll.hasVerticalScroller = stack.frame.height > height
+            scroll.drawsBackground = false
+            scroll.hasVerticalScroller = stack.frame.height > height
             scroll.documentView = stack
             let popover = ModelSelectionPopover(content: scroll, size: NSSize(width: width, height: height))
             self.popover = popover
@@ -76,7 +90,8 @@ struct ModelPopoverButton: NSViewRepresentable {
         }
         @objc func choose(_ sender: NSButton) {
             guard let input, input.models.indices.contains(sender.tag) else { return }
-            input.select(input.models[sender.tag]); popover?.close()
+            input.select(input.models[sender.tag])
+            popover?.close()
         }
     }
 }
@@ -92,18 +107,25 @@ private final class ModelSelectionPopover {
     var isShown: Bool { panel.isVisible }
     init(content: NSView, size: NSSize) {
         contentSize = size
-        panel = NSPanel(contentRect: NSRect(origin: .zero, size: NSSize(width: size.width, height: size.height + 10)),
-                        styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.isOpaque = false; panel.backgroundColor = .clear
-        panel.hasShadow = true; panel.isReleasedWhenClosed = false
+        panel = NSPanel(
+            contentRect: NSRect(origin: .zero, size: NSSize(width: size.width, height: size.height + 10)),
+            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.isReleasedWhenClosed = false
         let shell = NSVisualEffectView(frame: NSRect(origin: .zero, size: panel.frame.size))
-        shell.material = .popover; shell.state = .active; shell.blendingMode = .behindWindow
+        shell.material = .popover
+        shell.state = .active
+        shell.blendingMode = .behindWindow
         shell.wantsLayer = true
         shell.addSubview(content)
         panel.contentView = shell
     }
     func show(relativeTo rect: NSRect, of source: NSView, preferredEdge: NSRectEdge) {
-        guard let owner = source.window, let shell = panel.contentView, let content = shell.subviews.first else { return }
+        guard let owner = source.window, let shell = panel.contentView, let content = shell.subviews.first else {
+            return
+        }
         let anchor = owner.convertPoint(toScreen: source.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil))
         let bounds = owner.convertToScreen(owner.contentView!.bounds).insetBy(dx: 12, dy: 12)
         let above = preferredEdge == (source.isFlipped ? .minY : .maxY)
@@ -119,25 +141,48 @@ private final class ModelSelectionPopover {
         let baseY: CGFloat = above ? 10 : contentSize.height
         path.move(to: CGPoint(x: arrowX - 9, y: baseY))
         path.addLine(to: CGPoint(x: arrowX, y: above ? 0 : totalHeight))
-        path.addLine(to: CGPoint(x: arrowX + 9, y: baseY)); path.closeSubpath()
-        let mask = CAShapeLayer(); mask.path = path; shell.layer?.mask = mask
+        path.addLine(to: CGPoint(x: arrowX + 9, y: baseY))
+        path.closeSubpath()
+        let mask = CAShapeLayer()
+        mask.path = path
+        shell.layer?.mask = mask
         owner.addChildWindow(panel, ordered: .above)
         panel.orderFront(nil)
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .keyDown]) { [weak self] event in
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .keyDown]) {
+            [weak self] event in
             guard let self else { return event }
             if event.type == .keyDown {
-                if event.keyCode == 53 { self.close(); return nil }
-            } else if event.window !== self.panel { self.close() }
+                if event.keyCode == 53 {
+                    self.close()
+                    return nil
+                }
+            } else if event.window !== self.panel {
+                self.close()
+            }
             return event
         }
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in self?.close() }
-        resignObserver = NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.close() }
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) {
+            [weak self] _ in self?.close()
+        }
+        resignObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.close() }
     }
     func close() {
-        panel.parent?.removeChildWindow(panel); panel.orderOut(nil)
-        if let localMonitor { NSEvent.removeMonitor(localMonitor); self.localMonitor = nil }
-        if let globalMonitor { NSEvent.removeMonitor(globalMonitor); self.globalMonitor = nil }
-        if let resignObserver { NotificationCenter.default.removeObserver(resignObserver); self.resignObserver = nil }
+        panel.parent?.removeChildWindow(panel)
+        panel.orderOut(nil)
+        if let localMonitor {
+            NSEvent.removeMonitor(localMonitor)
+            self.localMonitor = nil
+        }
+        if let globalMonitor {
+            NSEvent.removeMonitor(globalMonitor)
+            self.globalMonitor = nil
+        }
+        if let resignObserver {
+            NotificationCenter.default.removeObserver(resignObserver)
+            self.resignObserver = nil
+        }
     }
     deinit { close() }
 }

@@ -17,7 +17,7 @@ def run(*args):
     result = subprocess.run(args, capture_output=True, text=True, check=True)
     return result.stdout + result.stderr
 
-original = root / 'build/声笺.app'
+original = Path(os.environ.get('BUILD_DIR', str(root / 'build'))) / '声笺.app'
 requirement = run('codesign', '-d', '-r-', str(original)).split('designated => ', 1)[1].splitlines()[0].strip()
 assert 'certificate leaf' in requirement and 'cdhash' not in requirement
 assert identity.lower() in requirement.lower()

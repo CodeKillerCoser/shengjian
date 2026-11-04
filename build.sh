@@ -32,7 +32,7 @@ cp Brand/shengjian-logo-v1.png "$app/Contents/Resources/ShengjianLogo.png"
 cp Brand/Shengjian.icns "$app/Contents/Resources/Shengjian.icns"
 sdk="$(xcrun --sdk macosx --show-sdk-path)"
 xcrun swiftc -parse-as-library -swift-version 5 $optimization -sdk "$sdk" -target arm64-apple-macos14.0 \
-  Sources/*.swift -o "$app/Contents/MacOS/Shengjian" \
+  Sources/**/*.swift -o "$app/Contents/MacOS/Shengjian" \
   -framework SwiftUI -framework AppKit -framework AVFoundation -framework Speech -framework Security -framework Carbon -framework CoreAudio
 codesign --force --sign "$identity" --identifier "$bundle_id" --requirements "=$requirement" "$app"
 codesign --verify --strict --test-requirement "=identifier \"$bundle_id\" and certificate leaf = H\"$identity\"" "$app"

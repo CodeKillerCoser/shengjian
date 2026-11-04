@@ -12,7 +12,8 @@ final class SingleInstance {
         let fd = open(url.path, O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW, S_IRUSR | S_IWUSR)
         guard fd >= 0 else { throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno)) }
         guard flock(fd, LOCK_EX | LOCK_NB) == 0 else {
-            let code = errno; Darwin.close(fd)
+            let code = errno
+            Darwin.close(fd)
             if code == EWOULDBLOCK { return false }
             throw NSError(domain: NSPOSIXErrorDomain, code: Int(code))
         }
@@ -25,7 +26,9 @@ final class SingleInstance {
         do {
             guard try shared.acquire(at: url) else {
                 let currentPID = ProcessInfo.processInfo.processIdentifier
-                if let existing = NSRunningApplication.runningApplications(withBundleIdentifier: "com.shengjian.app").first(where: { $0.processIdentifier != currentPID }) {
+                if let existing = NSRunningApplication.runningApplications(withBundleIdentifier: "com.shengjian.app")
+                    .first(where: { $0.processIdentifier != currentPID })
+                {
                     existing.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
                     if let bundle = existing.bundleURL {
                         let configuration = NSWorkspace.OpenConfiguration()
