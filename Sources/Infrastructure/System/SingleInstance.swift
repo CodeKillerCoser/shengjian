@@ -21,8 +21,14 @@ final class SingleInstance {
         return true
     }
     static func enforce() {
-        let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("RimeVoice/instance.lock")
+        let url = AppStorage.root.appendingPathComponent("instance.lock")
+        do { try AppStorage.prepare() } catch {
+            let alert = NSAlert()
+            alert.messageText = "数据目录迁移失败"
+            alert.informativeText = error.localizedDescription
+            alert.runModal()
+            exit(1)
+        }
         do {
             guard try shared.acquire(at: url) else {
                 let currentPID = ProcessInfo.processInfo.processIdentifier

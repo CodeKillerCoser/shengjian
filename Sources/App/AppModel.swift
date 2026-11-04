@@ -14,6 +14,8 @@ import Combine
     let recorder: AudioRecorder
     let activity = ActivityState()
     let guide: AuthorizationGuideController
+    let breeze: BreezeController
+    let breezeEnvironment: BreezeEnvironment
     private let transcription: TranscriptionService
     private let playback = AudioPlayback()
     private var overlay: RecordingOverlay?
@@ -22,14 +24,14 @@ import Combine
     private var subscriptions = Set<AnyCancellable>()
 
     init(directory: URL? = nil, systemIntegration: Bool = true) {
-        let directory =
-            directory
-            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("RimeVoice")
+        let directory = directory ?? AppStorage.root
         settings = AppSettings(store: PreferencesStore(directory: directory))
         permissions = PermissionModel()
         inputs = AudioInputMonitor()
-        recorder = AudioRecorder()
+        recorder = AudioRecorder(temporaryDirectory: directory.appendingPathComponent("Temporary", isDirectory: true))
+        let breezeDirectory = directory.appendingPathComponent("Engines/Breeze", isDirectory: true)
+        breeze = BreezeController(service: BreezeService(directory: breezeDirectory))
+        breezeEnvironment = BreezeEnvironment(service: BreezeEnvironmentService(directory: breezeDirectory))
         transcription = TranscriptionService(permissions: permissions)
         let client = ModelClient()
         let library = HistoryLibrary(
@@ -100,6 +102,7 @@ import Combine
         NSApp.windows.first { !($0 is NSPanel) }?.makeKeyAndOrderFront(nil)
     }
     func shutdown() {
+        breeze.stopPlayback()
         shortcuts.stop()
         guide.close()
         catalog.cancel()

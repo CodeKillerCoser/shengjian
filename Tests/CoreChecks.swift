@@ -7,6 +7,7 @@ import Foundation
     @MainActor static func main() async throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1])
         let port = CommandLine.arguments[2]
+        try await BreezeChecks.run(root: root, port: port)
         let store = PreferencesStore(directory: root.appendingPathComponent("core"))
         let defaults = store.load()
         precondition(defaults.copiesResult && defaults.shortcut == nil)

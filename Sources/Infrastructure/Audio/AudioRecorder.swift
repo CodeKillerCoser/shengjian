@@ -10,9 +10,15 @@ import Combine
     private var recorder: AVAudioRecorder?
     private var prepared: AVAudioRecorder?
     private var timer: Timer?
+    private let temporaryDirectory: URL
+
+    init(temporaryDirectory: URL = AppStorage.root.appendingPathComponent("Temporary", isDirectory: true)) {
+        self.temporaryDirectory = temporaryDirectory
+    }
 
     private func makeRecorder() throws -> AVAudioRecorder {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("rimevoice-\(UUID().uuidString).wav")
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        let url = temporaryDirectory.appendingPathComponent("rimevoice-\(UUID().uuidString).wav")
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 16000,
             AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false,

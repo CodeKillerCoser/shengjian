@@ -22,11 +22,19 @@ class Handler(BaseHTTPRequestHandler):
         return True
     def do_GET(self):
         if not self.authorized(): return
+        if self.path=='/health':
+            self.send_response(200); self.end_headers(); self.wfile.write(b'{}'); return
         assert self.path=='/auth/v1/models'
         self.send_response(200); self.end_headers()
         self.wfile.write(b'{"data":[{"id":"z"},{"id":"a"},{"id":"z"}]}')
     def do_POST(self):
         if not self.authorized(): return
+        if self.path=='/v1/audio/speech':
+            body=self.rfile.read(int(self.headers['Content-Length']))
+            assert b'multipart/form-data' in self.headers['Content-Type'].encode()
+            assert b'name="text"' in body and '合成测试'.encode() in body
+            assert b'name="instruction"' in body
+            self.send_response(200); self.end_headers(); self.wfile.write(bytes(4800)); return
         assert self.path in ['/v1/chat/completions', '/auth/v1/chat/completions']
         data=json.loads(self.rfile.read(int(self.headers['Content-Length'])))
         if data['model']=='server-error': self.send_response(500); self.end_headers(); return
@@ -39,7 +47,7 @@ threading.Thread(target=server.serve_forever,daemon=True).start()
 frameworks=['SwiftUI','AppKit','AVFoundation','Speech','Security','Carbon']
 sources=[str(p) for p in sorted(Path('Sources').rglob('*.swift')) if 'App' not in p.parts]
 core_sources=[p for p in sources if 'Presentation' not in Path(p).parts]
-core_cmd=['swiftc','-parse-as-library','-swift-version','5']+core_sources+['Tests/CoreChecks.swift','-o',str(root/'core-checks')]
+core_cmd=['swiftc','-parse-as-library','-swift-version','5']+core_sources+['Tests/CoreChecks.swift','Tests/BreezeChecks.swift','-o',str(root/'core-checks')]
 for name in frameworks:
     if name != 'SwiftUI': core_cmd+=['-framework',name]
 subprocess.run(core_cmd,check=True)

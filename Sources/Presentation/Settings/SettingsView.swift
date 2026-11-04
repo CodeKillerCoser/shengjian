@@ -9,6 +9,7 @@ struct SettingsView: View {
     @ObservedObject var catalog: ModelCatalog
     @ObservedObject var inputs: AudioInputMonitor
     let guide: AuthorizationGuideController
+    @ObservedObject var breezeEnvironment: BreezeEnvironment
     var body: some View {
         VStack(spacing: 0) {
             Form {
@@ -51,6 +52,7 @@ struct SettingsView: View {
                             get: { model.prefs.copiesResult }, set: { model.prefs.copyAfterTranscription = $0 }))
                     Toggle("转写后自动填写到输入框", isOn: $model.prefs.autoInsert)
                 }
+                MLXSettingsSection(environment: breezeEnvironment)
                 Section("语音转写") {
                     Picker("识别引擎", selection: $model.prefs.engine) {
                         Text("Apple 本地识别").tag("apple")

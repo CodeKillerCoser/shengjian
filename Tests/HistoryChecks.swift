@@ -234,7 +234,7 @@ import Foundation
     let permissions: PermissionModel
     let activity = ActivityState()
     let inputs: AudioInputMonitor
-    let recorder = AudioRecorder()
+    let recorder: AudioRecorder
     let playback = AudioPlayback()
     let library: HistoryLibrary
     let processing: ProcessingService
@@ -243,6 +243,7 @@ import Foundation
     let history: HistoryModel
     let shortcuts: ShortcutModel
     init(directory: URL, permissionActions: PermissionActions? = nil, inputAvailable: Bool = false) {
+        recorder = AudioRecorder(temporaryDirectory: directory.appendingPathComponent("Temporary"))
         inputs = AudioInputMonitor(probe: { inputAvailable }, subscribe: false)
         settings = AppSettings(store: PreferencesStore(directory: directory))
         permissions = PermissionModel(

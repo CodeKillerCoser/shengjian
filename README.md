@@ -10,6 +10,10 @@
 - 全局录音快捷键、后台波形、可选复制与自动填写。
 - 本地音频及处理历史，支持重试和模型/耗时/用量记录。
 - 音频输入设备启动检测与 Core Audio 变更订阅，防止双开。
+- Breeze 本地语音合成：音色描述、参考音频克隆、使用转写原文或改写结果、播放与音频保存。
+- 设置页检测独立 MLX 环境、模型完整性并提供安装与修复；支持系统代理和安装日志。
+
+Breeze 首次安装需联网下载约 7 GB 模型；运行时仅监听本机并使用离线模型。模型及生成音频受研究与非商业许可限制。修复前需停止语音服务。
 
 ## 代码结构
 
@@ -19,7 +23,7 @@
 | `Sources/Presentation` | 听写、历史、设置、权限引导的视图与页面状态；通用 UI 组件 |
 | `Sources/Application` | 转写与整理流程、历史数据管理、共享配置、统一授权状态及活动互斥 |
 | `Sources/Domain` | 配置、音频与处理记录等数据类型 |
-| `Sources/Infrastructure` | 录音播放、Apple/Whisper、模型 HTTP 客户端、持久化与 macOS 系统交互 |
+| `Sources/Infrastructure` | 录音播放、Apple/Whisper、Breeze 服务与安装、模型 HTTP 客户端、持久化与 macOS 系统交互 |
 
 页面依赖各自的 Model；Model 调用业务流程和具体服务。`AppModel` 负责创建和连接这些对象，不承载业务实现。核心流程和基础服务不依赖页面、悬浮窗或页面 Model。
 
@@ -90,4 +94,4 @@ Bundle ID：**`com.shengjian.app`**，可执行文件名 `Shengjian`。
 
 此前本机原型使用 `local.rimevoice.desktop`，切换到正式 Bundle ID 需重新授权一次麦克风、语音识别和辅助功能。后续保持 Bundle ID、签名证书和安装位置一致。
 
-现阶段保留旧原型的 `Application Support/RimeVoice` 数据目录与钥匙串服务名以继续读取原有配置、音频和历史；它们是兼容标识，不是产品名称。发布包不包含这些用户数据。
+应用数据统一保存于 `~/Library/Application Support/Shengjian`：设置位于 `settings.json`，录音与历史位于 `History/`，临时录音位于 `Temporary/`，Breeze 模型、独立 Python 环境与缓存位于 `Engines/Breeze/`。启动时可将旧 `RimeVoice` 数据目录整体迁移到尚不存在的新目录。钥匙串服务名保留兼容标识，以继续读取已有凭据。发布包不包含用户数据。
