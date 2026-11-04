@@ -47,7 +47,8 @@ enum BreezeChecks {
         let installation = try await environment.install(proxy: "http://127.0.0.1:9999")
         precondition(installation.message.contains("安装完成") && installation.log == "http://127.0.0.1:9999")
         let deployment = try String(contentsOf: directory.appendingPathComponent("manage.py"))
-        precondition(deployment == "existing deployment", "Repair must preserve deployed scripts")
+        let bundled = try String(contentsOf: resources.appendingPathComponent("manage.py"))
+        precondition(deployment == bundled, "Repair must update app-owned bootstrap scripts")
         print(
             "PASS: unified storage migration, mocked Breeze synthesis/WAV, reference validation, isolated bootstrap and proxy forwarding"
         )

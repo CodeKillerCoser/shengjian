@@ -8,7 +8,7 @@ struct MLXSettingsSection: View {
             Text("MLX 是推理框架，语音识别、文字整理和语音合成需要各自的模型。目前此环境已接入 Breeze 语音合成。")
                 .font(.caption).foregroundStyle(.secondary)
             HStack {
-                Text("统一存放目录")
+                Text("运行环境目录")
                 Spacer()
                 Text(environment.path).font(.caption).lineLimit(2).textSelection(.enabled)
 
@@ -24,7 +24,7 @@ struct MLXSettingsSection: View {
                 if environment.installing { Button("刷新安装进度") { environment.refreshLog() } }
                 Button("打开目录") { NSWorkspace.shared.open(environment.directory) }
             }
-            Text("首次安装需要联网，模型约 7 GB；Python、依赖和缓存均保存在所选目录。修复前请停止语音服务。")
+            Text("首次安装需要联网，模型约 7 GB。模型与运行环境保存在应用数据目录，下载缓存位于系统缓存目录。修复前请停止语音服务。")
                 .font(.caption).foregroundStyle(.secondary)
             if !environment.log.isEmpty {
                 DisclosureGroup("检测详情 / 安装日志") {

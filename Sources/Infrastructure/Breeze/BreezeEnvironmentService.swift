@@ -55,7 +55,7 @@ struct BreezeEnvironmentReport {
         let result = logs.appendingPathComponent("environment-check.log")
         let script =
             "import sys, mlx.core as mx, mlx_audio; from importlib.metadata import version; print('Python: '+sys.executable); print('MLX: '+version('mlx')); print('模块路径: '+mx.__file__); print('设备: '+str(mx.default_device()))"
-        let code = try await execute(python, arguments: ["-I", "-c", script], logURL: result)
+        let code = try await execute(python, arguments: ["-I", "-B", "-c", script], logURL: result)
         let log = (try? String(contentsOf: result, encoding: .utf8)) ?? ""
         let model = directory.appendingPathComponent(
             "data/huggingface/hub/models--mlx-community--Breeze-TTS-2-mlx/snapshots/3c8829fb7fd335818f085cd2ef49b4100c0e46c8"
@@ -79,10 +79,8 @@ struct BreezeEnvironmentReport {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         for name in ["setup.sh", "environment.sh", "manage.py", "start.sh"] {
             let target = directory.appendingPathComponent(name)
-            // Existing deployment scripts remain intact during repair.
-            if !FileManager.default.fileExists(atPath: target.path) {
-                try FileManager.default.copyItem(at: resources.appendingPathComponent(name), to: target)
-            }
+            // These scripts belong to the app and must receive bundled installer fixes on repair.
+            try Data(contentsOf: resources.appendingPathComponent(name)).write(to: target, options: .atomic)
         }
         let logs = directory.appendingPathComponent("logs")
         try FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)

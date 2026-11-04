@@ -98,4 +98,6 @@ Bundle ID：**`com.shengjian.app`**，可执行文件名 `Shengjian`。
 
 此前本机原型使用 `local.rimevoice.desktop`，切换到正式 Bundle ID 需重新授权一次麦克风、语音识别和辅助功能。后续保持 Bundle ID、签名证书和安装位置一致。
 
-应用数据统一保存于 `~/Library/Application Support/Shengjian`：设置位于 `settings.json`，录音与历史位于 `History/`，临时录音位于 `Temporary/`，Breeze 模型、独立 Python 环境与缓存位于 `Engines/Breeze/`。启动时可将旧 `RimeVoice` 数据目录整体迁移到尚不存在的新目录。钥匙串服务名保留兼容标识，以继续读取已有凭据。发布包不包含用户数据。
+应用数据统一保存于 `~/Library/Application Support/Shengjian`：设置位于 `settings.json`，录音与历史位于 `History/`，临时录音位于 `Temporary/`，Breeze 模型、独立 Python 环境、运行文件、合成音频与诊断日志位于 `Engines/Breeze/`。模型位于其中的 `data/huggingface/`，属于运行必需数据。可重建的依赖下载缓存与引擎临时文件放在 `~/Library/Caches/Shengjian/Breeze/`，不混入应用数据目录。安装只导出固定版本的引擎运行文件，不保留上游 Git 仓库、测试、开发文档或验收资料，也不安装 pytest / ruff；安装或修复时更新应用自带的管理脚本。
+
+启动时可将旧 `RimeVoice` 数据目录整体迁移到尚不存在的新目录。钥匙串服务名保留兼容标识，以继续读取已有凭据。发布包不包含用户数据。
